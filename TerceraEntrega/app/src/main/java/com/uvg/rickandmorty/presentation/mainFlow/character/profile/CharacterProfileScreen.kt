@@ -1,0 +1,274 @@
+package com.uvg.rickandmorty.presentation.mainFlow.character.profile
+
+import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.uvg.rickandmorty.data.model.Character
+import com.uvg.rickandmorty.data.source.CharacterDb
+import com.uvg.rickandmorty.presentation.ui.theme.RickAndMortyTheme
+
+@Composable
+fun CharacterProfileRoute(
+    id: Int,
+    onNavigateBack: () -> Unit,
+    viewModel: CharacterProfileViewModel = viewModel()
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Llama automáticamente a la función para obtener información
+    if (!state.loading && state.data == null && !state.hasError) {
+        viewModel.getCharacterData(id) // Pasa el ID del personaje
+    }
+
+    CharacterProfileScreen(
+        state = state,
+        onNavigateBack = onNavigateBack,
+        onRetryClick = {
+            viewModel.retryLoading() // Reintentar obtener datos
+        },
+        onErrorClick = {
+            viewModel.triggerError() // Cambia a estado de error al hacer clic en la pantalla de carga
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CharacterProfileScreen(
+    state: CharacterProfileState,
+    onRetryClick: () -> Unit,
+    onErrorClick: () -> Unit,
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+    ) {
+        TopAppBar(
+            title = {
+                Text("Character Details")
+            },
+            navigationIcon = {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = null)
+                }
+            }
+        )
+        CharacterProfileContent(
+            character = state.data,
+            isLoading = state.loading,
+            hasError = state.hasError,
+            onRetryClick = onRetryClick,
+            onErrorClick = onErrorClick,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+private fun CharacterProfileContent(
+    character: Character?,
+    isLoading: Boolean,
+    hasError: Boolean,
+    onRetryClick: () -> Unit,
+    onErrorClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        if (isLoading) {
+            LoadingScreen(onClick = onErrorClick)
+        } else if (hasError) {
+            ErrorScreen(onRetryClick = onRetryClick)
+        } else if (character == null) {
+            Text(text = "No se encontraron datos de personaje.")
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 64.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = character.name,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                CharacterProfilePropItem(
+                    title = "Species:",
+                    value = character.species,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                CharacterProfilePropItem(
+                    title = "Status:",
+                    value = character.status,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                CharacterProfilePropItem(
+                    title = "Gender:",
+                    value = character.gender,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LoadingScreen(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable { onClick() }, // Cambia el estado a error al hacer clic
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "Cargando, paciente.")
+        }
+    }
+}
+
+@Composable
+private fun CharacterProfilePropItem(
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(text = title)
+        Text(text = value)
+    }
+}
+
+@Composable
+fun ErrorScreen(onRetryClick: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = "Ha ocurrido un error.")
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onRetryClick) {
+                Text(text = "Reintentar")
+            }
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun PreviewCharacterProfileScreen() {
+    RickAndMortyTheme {
+        Surface {
+            CharacterProfileScreen(
+                state = CharacterProfileState(
+                    loading = false,
+                    hasError = false,
+                    data = Character(1, "Rick Sanchez", "Alive", "Human", "Male", "")
+                ),
+                onNavigateBack = { },
+                onRetryClick = { },
+                onErrorClick = { },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun PreviewLoadingCharacterProfileScreen() {
+    RickAndMortyTheme {
+        Surface {
+            CharacterProfileScreen(
+                state = CharacterProfileState(
+                    loading = true,
+                    hasError = false,
+                    data = null
+                ),
+                onNavigateBack = { },
+                onRetryClick = { },
+                onErrorClick = { },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun PreviewEmptyCharacterProfileScreen() {
+    RickAndMortyTheme {
+        Surface {
+            CharacterProfileScreen(
+                state = CharacterProfileState(
+                    loading = false,
+                    hasError = false,
+                    data = null
+                ),
+                onNavigateBack = { },
+                onRetryClick = { },
+                onErrorClick = { },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun PreviewErrorCharacterProfileScreen() {
+    RickAndMortyTheme {
+        Surface {
+            CharacterProfileScreen(
+                state = CharacterProfileState(
+                    loading = false,
+                    hasError = true,
+                    data = null
+                ),
+                onNavigateBack = { },
+                onRetryClick = { },
+                onErrorClick = { },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}

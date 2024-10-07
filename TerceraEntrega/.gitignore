@@ -1,4 +1,8 @@
 *.iml
+
+# Ignore all .idea files
+.idea/*
+
 .gradle
 /local.properties
 /.idea/caches
